@@ -70,6 +70,10 @@ func (wrapper RedisWrapper) SRem(key, value string) (affected int64, err error) 
 	return wrapper.rawClient.SRem(context.TODO(), key, value).Result()
 }
 
+func (wrapper RedisWrapper) ZAdd(key, value string, members ...redis.Z) (affected int64, err error) {
+	return wrapper.rawClient.ZAdd(context.TODO(), key, members...).Result()
+}
+
 func (wrapper RedisWrapper) FlushDb() error {
 	// NOTE: using Err() here because Result() string is always "OK"
 	return wrapper.rawClient.FlushDB(context.TODO()).Err()
