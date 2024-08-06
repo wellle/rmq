@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -17,6 +19,7 @@ const (
 type Queue interface {
 	Publish(payload ...string) error
 	PublishBytes(payload ...[]byte) error
+	SchedulePublish(payload string, publishDelay int) (string, error)
 	SetPushQueue(pushQueue Queue)
 	Remove(payload string, count int64, removeFromRejected bool) error
 	RemoveBytes(payload []byte, count int64, removeFromRejected bool) error
@@ -452,6 +455,39 @@ func (queue *redisQueue) PurgeReady() (int64, error) {
 // PurgeRejected removes all rejected deliveries from the queue and returns the number of purged deliveries
 func (queue *redisQueue) PurgeRejected() (int64, error) {
 	return queue.deleteRedisList(queue.rejectedKey)
+}
+
+// SchedulePublish publishes a tasks after a given time
+func (Queue *redisQueue) SchedulePublish(string, int) (string, error) {
+	err := rdb.Watch(ctx, func(tx *redis.Tx) error {
+		// Watch zsetKey to ensure no other transaction modifies it
+		zscore, err := tx.ZScore(ctx, zsetKey, element).Result()
+		if err != nil {
+			if err == redis.Nil {
+				// Element not found in zset
+				return fmt.Errorf("element not found in zset")
+			}
+			return err
+		}
+
+		// Start a transaction
+		_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+			pipe.RPush(ctx, listKey, element)
+			pipe.ZRem(ctx, zsetKey, element)
+			return nil
+		})
+
+		return err
+	}, zsetKey)
+
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	fmt.Println("Element moved from zset to list successfully")
+
+	return "", nil
 }
 
 // return number of deleted list items
