@@ -24,7 +24,10 @@ type RedisClient interface {
 	SAdd(key, value string) (total int64, err error)
 	SMembers(key string) (members []string, err error)
 	SRem(key, value string) (affected int64, err error)
-	ZAdd(key, value string,members... redis.Z) (total int64, err error)
+	ZAdd(key, value string, members ...redis.Z) (total int64, err error)
+
+	// tx
+	TxPipelined(fn func(pipe redis.Pipeliner) error) error
 
 	// special
 	FlushDb() error

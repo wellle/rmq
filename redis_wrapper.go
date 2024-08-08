@@ -81,10 +81,26 @@ func (wrapper RedisWrapper) ZAdd(key, value string, members ...redis.Z) (affecte
 // 	return nil
 // }
 
+func (wrapper RedisWrapper) Watch(fn func(tx *redis.Tx) error) error {
+	_, err := wrapper.rawClient.TxPipelined(context.TODO(), fn)
+	// return txPipelinedFunc(params)
+	return err
+}
+
 func (wrapper RedisWrapper) TxPipelined(fn func(pipe redis.Pipeliner) error) error {
 	_, err := wrapper.rawClient.TxPipelined(context.TODO(), fn)
 	// return txPipelinedFunc(params)
 	return err
+}
+
+func (wrapper RedisWrapper) TestPipelined() error {
+
+	wrapper.TxPipelined(func(pipe redis.Pipeliner) error {
+
+		return nil
+	})
+
+	return nil
 }
 
 func (wrapper RedisWrapper) FlushDb() error {
