@@ -70,26 +70,12 @@ func (wrapper RedisWrapper) SRem(key, value string) (affected int64, err error) 
 	return wrapper.rawClient.SRem(context.TODO(), key, value).Result()
 }
 
-func (wrapper RedisWrapper) ZAdd(key, value string, members ...redis.Z) (affected int64, err error) {
+func (wrapper RedisWrapper) ZAdd(key string, members ...redis.Z) (affected int64, err error) {
 	return wrapper.rawClient.ZAdd(context.TODO(), key, members...).Result()
-}
-
-// func (wrapper RedisWrapper) TxPipelined(fn func(params ...interface{}) error, params ...interface{}) error {
-
-// 	wrapper.rawClient.TxPipelined(context.TODO(),fn)
-// 	// return txPipelinedFunc(params)
-// 	return nil
-// }
-
-func (wrapper RedisWrapper) Watch(fn func(tx *redis.Tx) error) error {
-	_, err := wrapper.rawClient.TxPipelined(context.TODO(), fn)
-	// return txPipelinedFunc(params)
-	return err
 }
 
 func (wrapper RedisWrapper) TxPipelined(fn func(pipe redis.Pipeliner) error) error {
 	_, err := wrapper.rawClient.TxPipelined(context.TODO(), fn)
-	// return txPipelinedFunc(params)
 	return err
 }
 

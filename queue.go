@@ -19,7 +19,7 @@ const (
 type Queue interface {
 	Publish(payload ...string) error
 	PublishBytes(payload ...[]byte) error
-	SchedulePublish(payload string, publishDelay int) (string, error)
+	SchedulePublish(payload string, publishDelay int64) (string, error)
 	SetPushQueue(pushQueue Queue)
 	Remove(payload string, count int64, removeFromRejected bool) error
 	RemoveBytes(payload []byte, count int64, removeFromRejected bool) error
@@ -54,6 +54,7 @@ type redisQueue struct {
 	unackedKey     string // key to list of currently consuming deliveries
 	readyKey       string // key to list of ready deliveries
 	rejectedKey    string // key to list of rejected deliveries
+	scheduleKey    string // key to list of schedule deliveries
 	pushKey        string // key to list of pushed deliveries
 	redisClient    RedisClient
 	errChan        chan<- error
@@ -70,7 +71,7 @@ type redisQueue struct {
 
 func newQueue(
 	name, connectionName, queuesKey string,
-	consumersTemplate, unackedTemplate, readyTemplate, rejectedTemplate string,
+	consumersTemplate, unackedTemplate, readyTemplate, rejectedTemplate, scheduleTemplate string,
 	redisClient RedisClient,
 	errChan chan<- error,
 ) *redisQueue {
@@ -83,6 +84,7 @@ func newQueue(
 
 	readyKey := strings.Replace(readyTemplate, phQueue, name, 1)
 	rejectedKey := strings.Replace(rejectedTemplate, phQueue, name, 1)
+	scheduleKey := strings.Replace(scheduleTemplate, phQueue, name, 1)
 
 	consumingStopped := make(chan struct{})
 	ackCtx, ackCancel := context.WithCancel(context.Background())
@@ -95,6 +97,7 @@ func newQueue(
 		unackedKey:       unackedKey,
 		readyKey:         readyKey,
 		rejectedKey:      rejectedKey,
+		scheduleKey:      scheduleKey,
 		redisClient:      redisClient,
 		errChan:          errChan,
 		consumingStopped: consumingStopped,
@@ -458,36 +461,9 @@ func (queue *redisQueue) PurgeRejected() (int64, error) {
 }
 
 // SchedulePublish publishes a tasks after a given time
-func (Queue *redisQueue) SchedulePublish(string, int) (string, error) {
-	err := rdb.Watch(ctx, func(tx *redis.Tx) error {
-		// Watch zsetKey to ensure no other transaction modifies it
-		zscore, err := tx.ZScore(ctx, zsetKey, element).Result()
-		if err != nil {
-			if err == redis.Nil {
-				// Element not found in zset
-				return fmt.Errorf("element not found in zset")
-			}
-			return err
-		}
-
-		// Start a transaction
-		_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
-			pipe.RPush(ctx, listKey, element)
-			pipe.ZRem(ctx, zsetKey, element)
-			return nil
-		})
-
-		return err
-	}, zsetKey)
-
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
-
-	fmt.Println("Element moved from zset to list successfully")
-
-	return "", nil
+func (queue *redisQueue) SchedulePublish(payload string, delay int64) (string, error) {
+	_, err := queue.redisClient.ZAdd(queue.scheduleKey, redis.Z{Score: float64(time.Now().Unix()) + float64(delay), Member: payload})
+	return "", err
 }
 
 // return number of deleted list items
@@ -638,4 +614,21 @@ func (queue *redisQueue) ensureConsuming() error {
 func jitteredDuration(duration time.Duration) time.Duration {
 	factor := 0.9 + rand.Float64()*0.2 // a jitter factor between 0.9 and 1.1 (+-10%)
 	return time.Duration(float64(duration) * factor)
+}
+
+func (queue *redisQueue) consumeSchedule() {
+	// errorCount := 0 //number of consecutive batch errors
+
+	for {
+		queue.redisClient.TxPipelined(func(pipe redis.Pipeliner) error {
+
+			// pipe.RPush(ctx, listKey, element)
+			// pipe.ZRem(ctx, zsetKey, element)
+
+			return nil
+		})
+
+		time.Sleep(jitteredDuration(queue.pollDuration))
+	}
+
 }

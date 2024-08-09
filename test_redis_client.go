@@ -433,3 +433,11 @@ func (client *TestRedisClient) findList(key string) ([]string, error) {
 	// return an empty list if not found
 	return []string{}, nil
 }
+
+func (client *TestRedisClient) TxPipelined(fn func(pipe redis.Pipeliner) error) error {
+	return nil
+}
+
+func (client *TestRedisClient) ZAdd(key string, members ...redis.Z) (total int64, err error) {
+	return 0, nil
+}
