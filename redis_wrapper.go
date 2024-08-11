@@ -83,16 +83,6 @@ func (wrapper RedisWrapper) TxPipelined(fn func(pipe redis.Pipeliner) error) err
 	return err
 }
 
-func (wrapper RedisWrapper) TestPipelined() error {
-
-	wrapper.TxPipelined(func(pipe redis.Pipeliner) error {
-
-		return nil
-	})
-
-	return nil
-}
-
 func (wrapper RedisWrapper) FlushDb() error {
 	// NOTE: using Err() here because Result() string is always "OK"
 	return wrapper.rawClient.FlushDB(context.TODO()).Err()

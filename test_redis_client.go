@@ -435,13 +435,13 @@ func (client *TestRedisClient) findList(key string) ([]string, error) {
 }
 
 func (client *TestRedisClient) TxPipelined(fn func(pipe redis.Pipeliner) error) error {
-	return nil
+	panic(errorNotSupported)
 }
 
 func (client *TestRedisClient) ZAdd(key string, members ...redis.Z) (total int64, err error) {
-	return 0, nil
+	panic(errorNotSupported)
 }
 
 func (client *TestRedisClient) ZRangeByScore(key string, opt *redis.ZRangeBy) (result []string, err error) {
-	return nil, nil
+	panic(errorNotSupported)
 }

@@ -178,7 +178,7 @@ func (queue *redisQueue) StartConsuming(prefetchLimit int64, pollDuration time.D
 	queue.deliveryChan = make(chan Delivery, prefetchLimit)
 	// log.Printf("rmq queue started consuming %s %d %s", queue, prefetchLimit, pollDuration)
 	go queue.consume()
-	go queue.consumeSchedule()
+	go queue.enqueueSchedule()
 	return nil
 }
 
@@ -617,7 +617,7 @@ func jitteredDuration(duration time.Duration) time.Duration {
 	return time.Duration(float64(duration) * factor)
 }
 
-func (queue *redisQueue) consumeSchedule() error {
+func (queue *redisQueue) enqueueSchedule() error {
 	errorCount := 0 //number of consecutive errors
 
 	for {
@@ -657,7 +657,6 @@ func (queue *redisQueue) consumeSchedule() error {
 					if err != nil {
 						return err
 					}
-
 				}
 				return nil
 			})
