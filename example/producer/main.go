@@ -28,8 +28,6 @@ func main() {
 		panic(err)
 	}
 
-	things.SchedulePublish("abc", 180)
-
 	var before time.Time
 	for i := 0; i < numDeliveries; i++ {
 		delivery := fmt.Sprintf("delivery %d", i)
