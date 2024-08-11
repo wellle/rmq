@@ -6,11 +6,10 @@ import (
 )
 
 var (
-	ErrorNotFound              = errors.New("entity not found") // entity being connection/queue/delivery/heartbeat
-	ErrorAlreadyConsuming      = errors.New("must not call StartConsuming() multiple times")
-	ErrorNotConsuming          = errors.New("must call StartConsuming() before adding consumers")
-	ErrorConsumingStopped      = errors.New("consuming stopped")
-	ErrorNotEnqueueingSchedule = errors.New("failed to enqueue schedule deliveries")
+	ErrorNotFound         = errors.New("entity not found") // entity being connection/queue/delivery/heartbeat
+	ErrorAlreadyConsuming = errors.New("must not call StartConsuming() multiple times")
+	ErrorNotConsuming     = errors.New("must call StartConsuming() before adding consumers")
+	ErrorConsumingStopped = errors.New("consuming stopped")
 )
 
 type ConsumeError struct {
