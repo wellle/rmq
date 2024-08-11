@@ -19,7 +19,7 @@ const (
 type Queue interface {
 	Publish(payload ...string) error
 	PublishBytes(payload ...[]byte) error
-	SchedulePublish(payload string, publishDelay int64) (string, error)
+	SchedulePublish(payload string, publishDelay uint64) (string, error)
 	SetPushQueue(pushQueue Queue)
 	Remove(payload string, count int64, removeFromRejected bool) error
 	RemoveBytes(payload []byte, count int64, removeFromRejected bool) error
@@ -461,8 +461,11 @@ func (queue *redisQueue) PurgeRejected() (int64, error) {
 	return queue.deleteRedisList(queue.rejectedKey)
 }
 
-// SchedulePublish publishes a tasks after a given time
-func (queue *redisQueue) SchedulePublish(payload string, delay int64) (string, error) {
+// SchedulePublish publishes a task after a given time (in seconds), with a maximum delay of no more than 2 hours
+func (queue *redisQueue) SchedulePublish(payload string, delay uint64) (string, error) {
+	if delay > 7200 {
+		delay = 7200
+	}
 	_, err := queue.redisClient.ZAdd(queue.scheduleKey, redis.Z{Score: float64(time.Now().Unix()) + float64(delay), Member: payload})
 	return "", err
 }
