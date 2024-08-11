@@ -101,6 +101,11 @@ func (consumer *Consumer) Consume(delivery rmq.Delivery) {
 	}
 }
 
+// func (consumer *Consumer) Consume(delivery rmq.Delivery) {
+// 	payload := delivery.Payload()
+// 	log.Printf("consumed %s", payload)
+// }
+
 func logErrors(errChan <-chan error) {
 	for err := range errChan {
 		switch err := err.(type) {

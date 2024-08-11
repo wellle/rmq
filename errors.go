@@ -6,10 +6,11 @@ import (
 )
 
 var (
-	ErrorNotFound         = errors.New("entity not found") // entity being connection/queue/delivery/heartbeat
-	ErrorAlreadyConsuming = errors.New("must not call StartConsuming() multiple times")
-	ErrorNotConsuming     = errors.New("must call StartConsuming() before adding consumers")
-	ErrorConsumingStopped = errors.New("consuming stopped")
+	ErrorNotFound              = errors.New("entity not found") // entity being connection/queue/delivery/heartbeat
+	ErrorAlreadyConsuming      = errors.New("must not call StartConsuming() multiple times")
+	ErrorNotConsuming          = errors.New("must call StartConsuming() before adding consumers")
+	ErrorConsumingStopped      = errors.New("consuming stopped")
+	ErrorNotEnqueueingSchedule = errors.New("failed to enqueue schedule deliveries")
 )
 
 type ConsumeError struct {
@@ -49,5 +50,18 @@ func (e *DeliveryError) Error() string {
 }
 
 func (e *DeliveryError) Unwrap() error {
+	return e.RedisErr
+}
+
+type EnqueuingError struct {
+	RedisErr error
+	Count    int // number of consecutive errors
+}
+
+func (e *EnqueuingError) Error() string {
+	return fmt.Sprintf("rmq.EnqueuingError (%d): %s", e.Count, e.RedisErr.Error())
+}
+
+func (e *EnqueuingError) Unwrap() error {
 	return e.RedisErr
 }

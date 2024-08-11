@@ -74,6 +74,10 @@ func (wrapper RedisWrapper) ZAdd(key string, members ...redis.Z) (affected int64
 	return wrapper.rawClient.ZAdd(context.TODO(), key, members...).Result()
 }
 
+func (wrapper RedisWrapper) ZRangeByScore(key string, opt *redis.ZRangeBy) (result []string, err error) {
+	return wrapper.rawClient.ZRangeByScore(context.TODO(), key, opt).Result()
+}
+
 func (wrapper RedisWrapper) TxPipelined(fn func(pipe redis.Pipeliner) error) error {
 	_, err := wrapper.rawClient.TxPipelined(context.TODO(), fn)
 	return err

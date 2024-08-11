@@ -178,6 +178,7 @@ func (queue *redisQueue) StartConsuming(prefetchLimit int64, pollDuration time.D
 	queue.deliveryChan = make(chan Delivery, prefetchLimit)
 	// log.Printf("rmq queue started consuming %s %d %s", queue, prefetchLimit, pollDuration)
 	go queue.consume()
+	go queue.consumeSchedule()
 	return nil
 }
 
@@ -616,19 +617,61 @@ func jitteredDuration(duration time.Duration) time.Duration {
 	return time.Duration(float64(duration) * factor)
 }
 
-func (queue *redisQueue) consumeSchedule() {
-	// errorCount := 0 //number of consecutive batch errors
+func (queue *redisQueue) consumeSchedule() error {
+	errorCount := 0 //number of consecutive errors
 
 	for {
-		queue.redisClient.TxPipelined(func(pipe redis.Pipeliner) error {
+		select {
+		case <-queue.consumingStopped:
+			return ErrorConsumingStopped
+		default:
+		}
 
-			// pipe.RPush(ctx, listKey, element)
-			// pipe.ZRem(ctx, zsetKey, element)
-
-			return nil
+		now := time.Now().Unix()
+		result, err := queue.redisClient.ZRangeByScore(queue.scheduleKey, &redis.ZRangeBy{
+			Min: "-inf",
+			Max: fmt.Sprintf("%d", now),
 		})
 
-		time.Sleep(jitteredDuration(queue.pollDuration))
-	}
+		if err != nil {
+			errorCount++
 
+			select { // try to add error to channel, but don't block
+			case queue.errChan <- &EnqueuingError{RedisErr: err, Count: errorCount}:
+			default:
+			}
+
+			continue
+		} else { //success
+			errorCount = 0
+		}
+
+		if len(result) > 0 {
+			err := queue.redisClient.TxPipelined(func(pipe redis.Pipeliner) error {
+				for _, val := range result {
+					_, err := pipe.LPush(context.TODO(), queue.readyKey, val).Result()
+					if err != nil {
+						return err
+					}
+					_, err = pipe.ZRem(context.TODO(), queue.scheduleKey, val).Result()
+					if err != nil {
+						return err
+					}
+
+				}
+				return nil
+			})
+			if err != nil {
+				errorCount++
+				select { // try to add error to channel, but don't block
+				case queue.errChan <- &EnqueuingError{RedisErr: err, Count: errorCount}:
+				default:
+				}
+				continue
+			} else { //success
+				errorCount = 0
+			}
+		}
+		time.Sleep(jitteredDuration(10000))
+	}
 }

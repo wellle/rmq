@@ -441,3 +441,7 @@ func (client *TestRedisClient) TxPipelined(fn func(pipe redis.Pipeliner) error) 
 func (client *TestRedisClient) ZAdd(key string, members ...redis.Z) (total int64, err error) {
 	return 0, nil
 }
+
+func (client *TestRedisClient) ZRangeByScore(key string, opt *redis.ZRangeBy) (result []string, err error) {
+	return nil, nil
+}
