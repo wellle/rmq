@@ -674,6 +674,6 @@ func (queue *redisQueue) enqueueSchedule() error {
 				errorCount = 0
 			}
 		}
-		time.Sleep(jitteredDuration(10000))
+		time.Sleep(jitteredDuration(1000))
 	}
 }
