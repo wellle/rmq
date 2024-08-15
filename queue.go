@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -466,7 +467,12 @@ func (queue *redisQueue) SchedulePublish(payload string, delay uint64) error {
 	if delay > 7200 {
 		delay = 7200
 	}
-	_, err := queue.redisClient.ZAdd(queue.scheduleKey, redis.Z{Score: float64(time.Now().Unix()) + float64(delay), Member: payload})
+	// add uuid for payload as prefix , so that make every payload is unique to avoid overwriting when publishing same string value
+	uniquePayload := fmt.Sprintf("%s:%s", uuid.NewString(), payload)
+	_, err := queue.redisClient.ZAdd(queue.scheduleKey, redis.Z{
+		Score:  float64(time.Now().Unix()) + float64(delay),
+		Member: uniquePayload,
+	})
 	return err
 }
 
@@ -652,11 +658,20 @@ func (queue *redisQueue) enqueueSchedule() error {
 		if len(result) > 0 {
 			err := queue.redisClient.TxPipelined(func(pipe redis.Pipeliner) error {
 				for _, val := range result {
-					_, err := pipe.LPush(context.TODO(), queue.readyKey, val).Result()
+
+					parts := strings.SplitN(val, ":", 2)
+
+					if len(parts) < 2 {
+						return fmt.Errorf("invalid payload format: %s", val)
+					}
+
+					originalPayload := parts[1]
+
+					_, err := pipe.LPush(context.TODO(), queue.readyKey, originalPayload).Result()
 					if err != nil {
 						return err
 					}
-					_, err = pipe.ZRem(context.TODO(), queue.scheduleKey, val).Result()
+					_, err = pipe.ZRem(context.TODO(), queue.scheduleKey, originalPayload).Result()
 					if err != nil {
 						return err
 					}
@@ -674,6 +689,6 @@ func (queue *redisQueue) enqueueSchedule() error {
 				errorCount = 0
 			}
 		}
-		time.Sleep(jitteredDuration(1000))
+		time.Sleep(time.Second)
 	}
 }
