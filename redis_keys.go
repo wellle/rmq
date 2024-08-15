@@ -12,6 +12,7 @@ const (
 	queuesKey                 = "rmq::queues"                     // Set of all open queues
 	queueReadyBaseTemplate    = "rmq::queue::[{queue}]::ready"    // List of deliveries in that {queue} (right is first and oldest, left is last and youngest)
 	queueRejectedBaseTemplate = "rmq::queue::[{queue}]::rejected" // List of rejected deliveries from that {queue}
+	queueScheduleBaseTemplate = "rmq::queue::[{queue}]::schedule" // List of schedule deliveries
 
 	phConnection = "{connection}" // connection name
 	phQueue      = "{queue}"      // queue name

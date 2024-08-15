@@ -39,6 +39,7 @@ func (queue *TestQueue) RemoveBytes(payload []byte, count int64, removeFromRejec
 }
 
 func (*TestQueue) SetPushQueue(Queue)                                   { panic(errorNotSupported) }
+func (*TestQueue) SchedulePublish(string, uint64) error                 { panic(errorNotSupported) }
 func (*TestQueue) StartConsuming(int64, time.Duration) error            { panic(errorNotSupported) }
 func (*TestQueue) StopConsuming() <-chan struct{}                       { panic(errorNotSupported) }
 func (*TestQueue) AddConsumer(string, Consumer) (string, error)         { panic(errorNotSupported) }

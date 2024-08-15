@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -17,6 +19,7 @@ const (
 type Queue interface {
 	Publish(payload ...string) error
 	PublishBytes(payload ...[]byte) error
+	SchedulePublish(payload string, publishDelay uint64) error
 	SetPushQueue(pushQueue Queue)
 	Remove(payload string, count int64, removeFromRejected bool) error
 	RemoveBytes(payload []byte, count int64, removeFromRejected bool) error
@@ -51,6 +54,7 @@ type redisQueue struct {
 	unackedKey     string // key to list of currently consuming deliveries
 	readyKey       string // key to list of ready deliveries
 	rejectedKey    string // key to list of rejected deliveries
+	scheduleKey    string // key to list of schedule deliveries
 	pushKey        string // key to list of pushed deliveries
 	redisClient    RedisClient
 	errChan        chan<- error
@@ -67,7 +71,7 @@ type redisQueue struct {
 
 func newQueue(
 	name, connectionName, queuesKey string,
-	consumersTemplate, unackedTemplate, readyTemplate, rejectedTemplate string,
+	consumersTemplate, unackedTemplate, readyTemplate, rejectedTemplate, scheduleTemplate string,
 	redisClient RedisClient,
 	errChan chan<- error,
 ) *redisQueue {
@@ -80,6 +84,7 @@ func newQueue(
 
 	readyKey := strings.Replace(readyTemplate, phQueue, name, 1)
 	rejectedKey := strings.Replace(rejectedTemplate, phQueue, name, 1)
+	scheduleKey := strings.Replace(scheduleTemplate, phQueue, name, 1)
 
 	consumingStopped := make(chan struct{})
 	ackCtx, ackCancel := context.WithCancel(context.Background())
@@ -92,6 +97,7 @@ func newQueue(
 		unackedKey:       unackedKey,
 		readyKey:         readyKey,
 		rejectedKey:      rejectedKey,
+		scheduleKey:      scheduleKey,
 		redisClient:      redisClient,
 		errChan:          errChan,
 		consumingStopped: consumingStopped,
@@ -172,6 +178,7 @@ func (queue *redisQueue) StartConsuming(prefetchLimit int64, pollDuration time.D
 	queue.deliveryChan = make(chan Delivery, prefetchLimit)
 	// log.Printf("rmq queue started consuming %s %d %s", queue, prefetchLimit, pollDuration)
 	go queue.consume()
+	go queue.enqueueSchedule()
 	return nil
 }
 
@@ -454,6 +461,15 @@ func (queue *redisQueue) PurgeRejected() (int64, error) {
 	return queue.deleteRedisList(queue.rejectedKey)
 }
 
+// SchedulePublish publishes a task after a given time (in seconds), with a maximum delay of no more than 2 hours
+func (queue *redisQueue) SchedulePublish(payload string, delay uint64) error {
+	if delay > 7200 {
+		delay = 7200
+	}
+	_, err := queue.redisClient.ZAdd(queue.scheduleKey, redis.Z{Score: float64(time.Now().Unix()) + float64(delay), Member: payload})
+	return err
+}
+
 // return number of deleted list items
 // https://www.redisgreen.net/blog/deleting-large-lists
 func (queue *redisQueue) deleteRedisList(key string) (int64, error) {
@@ -602,4 +618,62 @@ func (queue *redisQueue) ensureConsuming() error {
 func jitteredDuration(duration time.Duration) time.Duration {
 	factor := 0.9 + rand.Float64()*0.2 // a jitter factor between 0.9 and 1.1 (+-10%)
 	return time.Duration(float64(duration) * factor)
+}
+
+func (queue *redisQueue) enqueueSchedule() error {
+	errorCount := 0 //number of consecutive errors
+
+	for {
+		select {
+		case <-queue.consumingStopped:
+			return ErrorConsumingStopped
+		default:
+		}
+
+		now := time.Now().Unix()
+		result, err := queue.redisClient.ZRangeByScore(queue.scheduleKey, &redis.ZRangeBy{
+			Min: "-inf",
+			Max: fmt.Sprintf("%d", now),
+		})
+
+		if err != nil {
+			errorCount++
+
+			select { // try to add error to channel, but don't block
+			case queue.errChan <- &EnqueuingError{RedisErr: err, Count: errorCount}:
+			default:
+			}
+
+			continue
+		} else { //success
+			errorCount = 0
+		}
+
+		if len(result) > 0 {
+			err := queue.redisClient.TxPipelined(func(pipe redis.Pipeliner) error {
+				for _, val := range result {
+					_, err := pipe.LPush(context.TODO(), queue.readyKey, val).Result()
+					if err != nil {
+						return err
+					}
+					_, err = pipe.ZRem(context.TODO(), queue.scheduleKey, val).Result()
+					if err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				errorCount++
+				select { // try to add error to channel, but don't block
+				case queue.errChan <- &EnqueuingError{RedisErr: err, Count: errorCount}:
+				default:
+				}
+				continue
+			} else { //success
+				errorCount = 0
+			}
+		}
+		time.Sleep(jitteredDuration(1000))
+	}
 }

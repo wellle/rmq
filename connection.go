@@ -54,10 +54,10 @@ type redisConnection struct {
 	unackedTemplate   string
 	readyTemplate     string
 	rejectedTemplate  string
-
-	redisClient   RedisClient
-	errChan       chan<- error
-	heartbeatStop chan chan struct{} // used to stop heartbeat() in stopHeartbeat(), nil once stopped
+	scheduleTemplate  string
+	redisClient       RedisClient
+	errChan           chan<- error
+	heartbeatStop     chan chan struct{} // used to stop heartbeat() in stopHeartbeat(), nil once stopped
 
 	lock    sync.Mutex
 	stopped bool
@@ -110,6 +110,7 @@ func openConnection(tag string, redisClient RedisClient, useRedisHashTags bool, 
 		unackedTemplate:   getTemplate(connectionQueueUnackedBaseTemplate, useRedisHashTags),
 		readyTemplate:     getTemplate(queueReadyBaseTemplate, useRedisHashTags),
 		rejectedTemplate:  getTemplate(queueRejectedBaseTemplate, useRedisHashTags),
+		scheduleTemplate:  getTemplate(queueScheduleBaseTemplate, useRedisHashTags),
 		redisClient:       redisClient,
 		errChan:           errChan,
 		heartbeatStop:     make(chan chan struct{}, 1), // mark heartbeat as active, can be stopped
@@ -328,6 +329,7 @@ func (connection *redisConnection) openQueue(name string) Queue {
 		connection.unackedTemplate,
 		connection.readyTemplate,
 		connection.rejectedTemplate,
+		connection.scheduleTemplate,
 		connection.redisClient,
 		connection.errChan,
 	)

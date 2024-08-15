@@ -70,6 +70,19 @@ func (wrapper RedisWrapper) SRem(key, value string) (affected int64, err error) 
 	return wrapper.rawClient.SRem(context.TODO(), key, value).Result()
 }
 
+func (wrapper RedisWrapper) ZAdd(key string, members ...redis.Z) (affected int64, err error) {
+	return wrapper.rawClient.ZAdd(context.TODO(), key, members...).Result()
+}
+
+func (wrapper RedisWrapper) ZRangeByScore(key string, opt *redis.ZRangeBy) (result []string, err error) {
+	return wrapper.rawClient.ZRangeByScore(context.TODO(), key, opt).Result()
+}
+
+func (wrapper RedisWrapper) TxPipelined(fn func(pipe redis.Pipeliner) error) error {
+	_, err := wrapper.rawClient.TxPipelined(context.TODO(), fn)
+	return err
+}
+
 func (wrapper RedisWrapper) FlushDb() error {
 	// NOTE: using Err() here because Result() string is always "OK"
 	return wrapper.rawClient.FlushDB(context.TODO()).Err()
