@@ -55,7 +55,7 @@ type redisQueue struct {
 	unackedKey     string // key to list of currently consuming deliveries
 	readyKey       string // key to list of ready deliveries
 	rejectedKey    string // key to list of rejected deliveries
-	scheduleKey    string // key to list of schedule deliveries
+	scheduleKey    string // key to set of schedule deliveries
 	pushKey        string // key to list of pushed deliveries
 	redisClient    RedisClient
 	errChan        chan<- error
@@ -626,6 +626,7 @@ func jitteredDuration(duration time.Duration) time.Duration {
 	return time.Duration(float64(duration) * factor)
 }
 
+// enqueueSchedule enqueues tasks that already reach the given time to ready list
 func (queue *redisQueue) enqueueSchedule() error {
 	errorCount := 0 //number of consecutive errors
 
@@ -671,7 +672,7 @@ func (queue *redisQueue) enqueueSchedule() error {
 					if err != nil {
 						return err
 					}
-					_, err = pipe.ZRem(context.TODO(), queue.scheduleKey, originalPayload).Result()
+					_, err = pipe.ZRem(context.TODO(), queue.scheduleKey, val).Result()
 					if err != nil {
 						return err
 					}
