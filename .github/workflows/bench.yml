@@ -48,7 +48,7 @@ jobs:
           ref: ${{ (github.event.inputs.new != '') && github.event.inputs.new || github.event.ref }}
 
       - name: Go cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           # In order:
           # * Module download cache
@@ -61,7 +61,7 @@ jobs:
             ${{ runner.os }}-go-cache
 
       - name: Restore benchstat
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ~/go/bin/benchstat
           key: ${{ runner.os }}-benchstat-legacy
@@ -69,7 +69,7 @@ jobs:
       - name: Restore base benchmark result
         id: base-benchmark
         if: env.CACHE_BENCHMARK == 'on'
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             bench-master.txt
