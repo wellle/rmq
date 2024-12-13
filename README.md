@@ -1,6 +1,8 @@
 [![Build Status](https://github.com/adjust/rmq/workflows/test/badge.svg)](https://github.com/adjust/rmq/actions?query=branch%3Amaster+workflow%3Atest)
 [![GoDoc](https://pkg.go.dev/badge/github.com/adjust/rmq)](https://pkg.go.dev/github.com/adjust/rmq)
 
+This is a test.
+
 ## Overview
 
 rmq is short for Redis message queue. It's a message queue system written in Go
