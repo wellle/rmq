@@ -375,6 +375,16 @@ Note that `delivery.Push()` has the same affect as `delivery.Reject()` if the
 queue has no push queue set up. So in our example above, if the delivery fails
 in the consumer on `pushQ2`, then the `Push()` call will reject the delivery.
 
+### Schedule Publish
+
+If you want to publish a task after a given time(with a maximum delay of no more than 2 hours),you can call `queue.SchedulePublish`
+
+```go
+things, err := connection.OpenQueue("things")
+things.SchedulePublish("abc", 180) //publish a task after 180s
+```
+
+
 ### Stop Consuming
 
 If you want to stop consuming from the queue, you can call `StopConsuming()`:

@@ -1,6 +1,10 @@
 package rmq
 
-import "time"
+import (
+	"time"
+
+	"github.com/redis/go-redis/v9"
+)
 
 type RedisClient interface {
 	// simple keys
@@ -20,6 +24,11 @@ type RedisClient interface {
 	SAdd(key, value string) (total int64, err error)
 	SMembers(key string) (members []string, err error)
 	SRem(key, value string) (affected int64, err error)
+	ZAdd(key string, members ...redis.Z) (total int64, err error)
+	ZRangeByScore(key string, opt *redis.ZRangeBy) (result []string, err error)
+
+	// tx
+	TxPipelined(fn func(pipe redis.Pipeliner) error) error
 
 	// special
 	FlushDb() error

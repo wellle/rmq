@@ -51,3 +51,16 @@ func (e *DeliveryError) Error() string {
 func (e *DeliveryError) Unwrap() error {
 	return e.RedisErr
 }
+
+type EnqueuingError struct {
+	RedisErr error
+	Count    int // number of consecutive errors
+}
+
+func (e *EnqueuingError) Error() string {
+	return fmt.Sprintf("rmq.EnqueuingError (%d): %s", e.Count, e.RedisErr.Error())
+}
+
+func (e *EnqueuingError) Unwrap() error {
+	return e.RedisErr
+}
